@@ -70,16 +70,36 @@ public class InternalBatchDriverImpl extends BaseArangoDriverImpl {
 		headers.put("Content-Type", "multipart/form-data; boundary=" + delimiter);
 
 		HttpResponseEntity res = httpManager.doPostWithHeaders(createEndpointUrl(defaultDataBase, "/_api/batch"), null,
-			null, headers, body);
+			null, headers, body.toString());
+		
+		List<BatchResponseEntity> batchResponseEntityList = new ArrayList<BatchResponseEntity>();
+		BatchResponseEntity batchResponseEntity;
+		String t = null;
+		
+		if(res != null) {
+			String data = res.getText();
+			res.setContentType("application/json");					
+			res.setText("");			
+			batchResponseEntity = parseResponseData(resolver, batchResponseEntityList, t, data);
+		} else {
+			batchResponseEntity = new BatchResponseEntity(null);
+		}
+		
+		if (batchResponseEntity.getHttpResponseEntity() != null) {
+			batchResponseEntityList.add(batchResponseEntity);
+		}
+		BatchResponseListEntity batchResponseListEntity = new BatchResponseListEntity();
+		batchResponseListEntity.setBatchResponseEntities(batchResponseEntityList);
+		this.batchResponseListEntity = batchResponseListEntity;
+		return createEntity(res, DefaultEntity.class, null, false);
+	}
 
-		String data = res.getText();
-		res.setContentType("application/json");
+	private BatchResponseEntity parseResponseData(Map<String, InvocationObject> resolver,
+			List<BatchResponseEntity> batchResponseEntityList, String t,
+			String data) {
+		BatchResponseEntity batchResponseEntity = new BatchResponseEntity(null);
 		String currentId = null;
 		Boolean fetchText = false;
-		res.setText("");
-		List<BatchResponseEntity> batchResponseEntityList = new ArrayList<BatchResponseEntity>();
-		BatchResponseEntity batchResponseEntity = new BatchResponseEntity(null);
-		String t = null;
 		for (String line : data.split(newline)) {
 			line.trim();
 			line.replaceAll("\r", "");
@@ -126,13 +146,7 @@ public class InternalBatchDriverImpl extends BaseArangoDriverImpl {
 				t += line;
 			}
 		}
-		if (batchResponseEntity.getHttpResponseEntity() != null) {
-			batchResponseEntityList.add(batchResponseEntity);
-		}
-		BatchResponseListEntity batchResponseListEntity = new BatchResponseListEntity();
-		batchResponseListEntity.setBatchResponseEntities(batchResponseEntityList);
-		this.batchResponseListEntity = batchResponseListEntity;
-		return createEntity(res, DefaultEntity.class, null, false);
+		return batchResponseEntity;
 	}
 
 	public BatchResponseListEntity getBatchResponseListEntity() {
